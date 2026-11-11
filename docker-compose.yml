@@ -1,0 +1,62 @@
+# Music Royalty Management System - the three databases.
+# Host ports are deliberately non-default (5433 / 27018 / 7475 / 7688) so they
+# never clash with other local PostgreSQL / MongoDB / Neo4j installations.
+name: music-royalty
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mrms-postgres
+    environment:
+      POSTGRES_DB: royalty_db
+      POSTGRES_USER: royalty
+      POSTGRES_PASSWORD: royalty_pw
+    ports:
+      - "5433:5432"
+    volumes:
+      - mrms_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U royalty -d royalty_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mongo:
+    image: mongo:7
+    container_name: mrms-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: royalty
+      MONGO_INITDB_ROOT_PASSWORD: royalty_pw
+    ports:
+      - "27018:27017"
+    volumes:
+      - mrms_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: mrms-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/royalty_neo4j_pw
+      NEO4J_server_memory_heap_initial__size: 256m
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_pagecache_size: 128m
+    ports:
+      - "7475:7474"
+      - "7688:7687"
+    volumes:
+      - mrms_neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  mrms_pg_data:
+  mrms_mongo_data:
+  mrms_neo4j_data:

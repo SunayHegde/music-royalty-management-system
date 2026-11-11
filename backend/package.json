@@ -1,0 +1,27 @@
+{
+  "name": "music-royalty-backend",
+  "version": "1.0.0",
+  "description": "Music Royalty Management System - Express API over PostgreSQL, MongoDB and Neo4j",
+  "main": "src/server.js",
+  "private": true,
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "db:init": "node scripts/initDb.js",
+    "seed": "node scripts/seed.js",
+    "setup": "node scripts/initDb.js && node scripts/seed.js",
+    "test:e2e": "node scripts/e2eTest.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "csv-parse": "^5.6.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.12.0",
+    "multer": "^2.0.2",
+    "neo4j-driver": "^5.27.0",
+    "pg": "^8.13.1"
+  }
+}
