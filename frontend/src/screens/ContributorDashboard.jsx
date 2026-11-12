@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { get, post } from '../api';
 import { useAuth } from '../auth';
 import SplitVersion from '../components/SplitVersion';
@@ -67,7 +67,7 @@ export default function ContributorDashboard() {
                     </table>
                   )}
                 </Card>
-                <Card title="Recent statements" actions={<Link className="btn btn-ghost btn-sm" to="/me/statement">Full statement →</Link>}>
+                <Card title="Recent statements" actions={<Link className="btn btn-ghost btn-sm" href="/me/statement">Full statement →</Link>}>
                   {me.runs.length === 0 ? <Empty>No royalty statements yet.</Empty> : (
                     <table>
                       <thead><tr><th>Month</th><th className="num">Gross</th><th className="num">Advance</th><th className="num">Net</th><th>Status</th></tr></thead>

@@ -1,19 +1,22 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { get, post } from '../api';
 import SplitVersion from '../components/SplitVersion';
 import { Alert, Button, Card, Empty, Field, Loader, PageHeader, useAction, useApi } from '../components/ui';
 import { percentToBp, titleCase } from '../format';
 
 export default function Splits() {
-  const [params, setParams] = useSearchParams();
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const setTrack = (id, replace = false) => router[replace ? 'replace' : 'push'](`${pathname}?track=${id}`);
   const tracks = useApi(() => get('/tracks'));
   const trackId = params.get('track') || '';
   const versions = useApi(() => (trackId ? get(`/tracks/${trackId}/splits`) : Promise.resolve([])), [trackId]);
 
   useEffect(() => {
-    if (!trackId && tracks.data?.length) setParams({ track: String(tracks.data[0].id) }, { replace: true });
-  }, [trackId, tracks.data, setParams]);
+    if (!trackId && tracks.data?.length) setTrack(tracks.data[0].id, true);
+  }, [trackId, tracks.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const track = tracks.data?.find((t) => String(t.id) === trackId);
   const hasPending = versions.data?.some((v) => v.status === 'PENDING_APPROVAL');
@@ -25,7 +28,7 @@ export default function Splits() {
         <Loader state={tracks}>
           {(ts) => (
             <Field label="Track">
-              <select value={trackId} onChange={(e) => setParams({ track: e.target.value })}>
+              <select value={trackId} onChange={(e) => setTrack(e.target.value)}>
                 {ts.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.title} ({t.isrc}) {t.activeSplit ? `— v${t.activeSplit.versionNo} active` : t.hasPendingSplit ? '— awaiting approval' : '— no split'}

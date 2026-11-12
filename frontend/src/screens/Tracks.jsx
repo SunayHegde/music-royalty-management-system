@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { get, post, put } from '../api';
 import { Alert, Badge, Button, Card, Field, Loader, Modal, PageHeader, useAction, useApi } from '../components/ui';
 import { date, titleCase } from '../format';
@@ -46,7 +46,7 @@ export default function Tracks() {
                       <td>
                         {t.activeSplit ? <Badge status="ACTIVE" label={`v${t.activeSplit.versionNo} active`} />
                           : t.hasPendingSplit ? <Badge status="PENDING" label="Awaiting approval" />
-                            : <Link to={`/admin/splits?track=${t.id}`} className="small">Create split →</Link>}
+                            : <Link href={`/admin/splits?track=${t.id}`} className="small">Create split →</Link>}
                       </td>
                       <td><Button variant="ghost" className="btn btn-ghost btn-sm" onClick={() => setEditing(t)}>Edit</Button></td>
                     </tr>

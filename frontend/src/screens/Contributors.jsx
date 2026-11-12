@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { get, post, put } from '../api';
 import { Alert, Button, Card, Field, Loader, Modal, PageHeader, useAction, useApi } from '../components/ui';
 import { inr, titleCase } from '../format';
@@ -30,7 +30,7 @@ export default function Contributors() {
                       <td className="num">{c.trackCount}</td>
                       <td className="num">{inr(c.outstandingAdvance)}</td>
                       <td className="row gap end">
-                        <Link className="btn btn-ghost btn-sm" to={`/statements?contributor=${c.id}`}>Statement</Link>
+                        <Link className="btn btn-ghost btn-sm" href={`/statements?contributor=${c.id}`}>Statement</Link>
                         <Button variant="ghost" className="btn btn-ghost btn-sm" onClick={() => setEditing(c)}>Edit</Button>
                       </td>
                     </tr>

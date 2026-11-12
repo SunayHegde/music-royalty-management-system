@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { get } from '../api';
 import { RevenueChart } from '../components/charts';
 import { Badge, Card, Empty, Loader, PageHeader, Stat, useApi } from '../components/ui';
@@ -17,14 +17,14 @@ export default function AdminDashboard() {
               <Stat label="Contributors" value={num(d.counts.contributors)} />
               <Stat label={`Revenue · ${d.latestMonth ? month(d.latestMonth) : 'latest month'}`} value={inr(d.latestMonthRevenue)} hint="matched records only" />
               <Stat label="Pending split approvals" value={num(d.counts.pendingApprovals)} hint={`${d.counts.pendingSplitVersions} version(s) awaiting`} tone={d.counts.pendingApprovals ? 'warn' : undefined} />
-              <Stat label="Unmatched report rows" value={num(d.counts.unmatchedRows)} hint={<Link to="/admin/unmatched">Resolve →</Link>} tone={d.counts.unmatchedRows ? 'warn' : undefined} />
+              <Stat label="Unmatched report rows" value={num(d.counts.unmatchedRows)} hint={<Link href="/admin/unmatched">Resolve →</Link>} tone={d.counts.unmatchedRows ? 'warn' : undefined} />
               <Stat label="Outstanding advances" value={inr(d.counts.outstandingAdvances)} hint={`${d.counts.runsAwaitingFinance} run(s) awaiting finance`} />
             </div>
             <div className="grid-2">
               <Card title="Monthly streaming revenue by platform">
                 <RevenueChart rows={d.monthlyRevenue} />
               </Card>
-              <Card title="Split versions awaiting approval" actions={<Link className="btn btn-ghost btn-sm" to="/admin/splits">Manage</Link>}>
+              <Card title="Split versions awaiting approval" actions={<Link className="btn btn-ghost btn-sm" href="/admin/splits">Manage</Link>}>
                 {d.pendingSplits.length === 0 ? <Empty>No split agreements are waiting for approval.</Empty> : (
                   <ul className="list">
                     {d.pendingSplits.map((v) => (

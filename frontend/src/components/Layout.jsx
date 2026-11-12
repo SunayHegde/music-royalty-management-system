@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../auth';
 
 const NAV = {
@@ -31,9 +32,12 @@ const NAV = {
   ],
 };
 
-export default function Layout() {
+export default function Layout({ children }) {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
+  const pathname = usePathname();
+  // `end` items match only their exact path; others also match their sub-pages
+  const isActive = (it) => pathname === it.to || (!it.end && pathname.startsWith(`${it.to}/`));
   const [open, setOpen] = useState(false);
   const items = NAV[user.role] || [];
 
@@ -51,9 +55,9 @@ export default function Layout() {
           {items.map((it) => (it.section
             ? <div key={it.section} className="nav-section">{it.section}</div>
             : (
-              <NavLink key={it.to} to={it.to} end={it.end} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              <Link key={it.to} href={it.to} className={`nav-link ${isActive(it) ? 'active' : ''}`}>
                 <span className="nav-icon" aria-hidden="true">{it.icon}</span>{it.label}
-              </NavLink>
+              </Link>
             )))}
         </nav>
         <div className="sidebar-user">
@@ -62,7 +66,7 @@ export default function Layout() {
             <div className="user-name">{user.fullName}</div>
             <div className="user-role">{user.role.toLowerCase()} · {user.username}</div>
           </div>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => { logout(); navigate('/login'); }}>Log out</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => { logout(); router.push('/login'); }}>Log out</button>
         </div>
       </aside>
       <div className="main">
@@ -70,7 +74,7 @@ export default function Layout() {
           <button type="button" className="btn btn-ghost menu-btn" onClick={() => setOpen(!open)} aria-label="Toggle menu">☰</button>
           <span className="brand-name">RoyaltyDesk</span>
         </div>
-        <main className="content"><Outlet /></main>
+        <main className="content">{children}</main>
       </div>
     </div>
   );

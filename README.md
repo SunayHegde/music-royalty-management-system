@@ -4,7 +4,7 @@ A full-stack DBMS mini-project. A record label imports monthly streaming reports
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18 + Vite, plain CSS, React Router |
+| Frontend | Next.js 16 (App Router, React 19), plain CSS |
 | Backend | Node.js + Express, JWT auth, bcrypt password hashing |
 | **PostgreSQL 16** | Authoritative financial database: users, tracks, splits, approvals, normalized streaming records, advances, royalty runs, payments |
 | **MongoDB 7** | Original uploaded report rows (one document per CSV line) and unmatched rows |
@@ -28,9 +28,9 @@ Exactly three databases are used. There is no Redis and no other store.
 | MongoDB | **27018** |
 | Neo4j Browser / Bolt | **7475** / **7688** |
 | Express API | **4000** |
-| React (Vite) | **3000** |
+| Next.js | **3000** |
 
-The database ports are deliberately non-default so they don't clash with other local PostgreSQL, MongoDB or Neo4j installs. Vite uses 3000 instead of 5173 because Windows/Hyper-V often reserves the 5141–5240 range (you can check with `netsh interface ipv4 show excludedportrange protocol=tcp`).
+The database ports are deliberately non-default so they don't clash with other local PostgreSQL, MongoDB or Neo4j installs. The frontend uses port 3000 because Windows/Hyper-V often reserves the 5141–5240 range (you can check with `netsh interface ipv4 show excludedportrange protocol=tcp`).
 
 ---
 
@@ -154,7 +154,7 @@ Arjun 30% = ₹2,700.00          Priya 20% = ₹1,800.00
 ## 4. Architecture
 
 ```
-frontend/ (React + Vite)  ──/api proxy──►  backend/ (Express)
+frontend/ (Next.js)  ──/api rewrite──►  backend/ (Express)
                                               ├── PostgreSQL  (src/db/postgres.js)
                                               ├── MongoDB     (src/db/mongo.js)
                                               └── Neo4j       (src/db/neo4j.js)
@@ -172,7 +172,8 @@ backend/
     utils/         money.js (BigInt paise), validate.js, errors.js
   scripts/         initDb.js, seed.js, e2eTest.js
 frontend/src/
-  pages/           one page per screen (12 screens)
+  app/             Next.js routes (one folder per URL, role-checked)
+  screens/         one screen component per page (12 screens)
   components/      layout, UI kit, charts, split/run breakdowns
 sample-data/       demo CSV reports
 ```
@@ -256,6 +257,6 @@ sample-data/       demo CSV reports
 ## 7. Troubleshooting
 
 * **`Database connection failed`** when starting the API: run `docker compose ps` and wait for all three containers to show *healthy*.
-* **`listen EACCES … :3000`**: that port is reserved on your machine. Change `server.port` in `frontend/vite.config.js` and `CORS_ORIGIN` in `backend/.env`.
+* **`listen EACCES … :3000`**: that port is reserved on your machine. Change the `-p 3000` in the `dev`/`start` scripts of `frontend/package.json` and `CORS_ORIGIN` in `backend/.env`.
 * **A port is already in use**: change the left-hand port in `docker-compose.yml` and the matching value in `backend/.env`.
 * **A late-mapped row isn't in the run**: a run for that month already exists. Records mapped afterwards are included only if Finance rejects the run and the admin recalculates.

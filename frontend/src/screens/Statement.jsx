@@ -1,11 +1,13 @@
-import { useSearchParams } from 'react-router-dom';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { get } from '../api';
 import { Badge, Card, Empty, Field, Loader, PageHeader, Stat, useApi } from '../components/ui';
 import { dateTime, inr, month, pct, titleCase } from '../format';
 
 /** Contributor-wise royalty statement. `own` = logged-in contributor; otherwise admin/finance pick one. */
 export default function Statement({ own = false }) {
-  const [params, setParams] = useSearchParams();
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const contributors = useApi(() => (own ? Promise.resolve([]) : get('/contributors')), [own]);
   const selected = own ? 'me' : params.get('contributor') || '';
   const statement = useApi(
@@ -21,7 +23,7 @@ export default function Statement({ own = false }) {
           <Loader state={contributors}>
             {(cs) => (
               <Field label="Contributor">
-                <select value={selected} onChange={(e) => setParams({ contributor: e.target.value })}>
+                <select value={selected} onChange={(e) => router.push(`${pathname}?contributor=${e.target.value}`)}>
                   <option value="">Select a contributor…</option>
                   {cs.map((c) => <option key={c.id} value={c.id}>{c.name} ({titleCase(c.role)})</option>)}
                 </select>

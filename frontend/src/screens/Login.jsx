@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { homeFor, useAuth } from '../auth';
 import { Alert, Button } from '../components/ui';
 
@@ -13,7 +13,7 @@ const DEMO = [
 
 export default function Login() {
   const { login } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
@@ -24,7 +24,7 @@ export default function Login() {
     setBusy(true); setError(null);
     try {
       const user = await login(username, password);
-      navigate(homeFor(user.role), { replace: true });
+      router.replace(homeFor(user.role));
     } catch (err) { setError(err); } finally { setBusy(false); }
   };
 

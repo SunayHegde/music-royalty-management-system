@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { api, get } from '../api';
 import { Alert, Badge, Button, Card, Empty, Field, Loader, Modal, PageHeader, useAction, useApi } from '../components/ui';
 import { dateTime, inr, month, num } from '../format';
@@ -11,6 +11,7 @@ export default function Reports() {
   const [file, setFile] = useState(null);
   const [result, setResult] = useState(null);
   const [viewing, setViewing] = useState(null);
+  const [dragging, setDragging] = useState(false);
   const fileRef = useRef();
   const action = useAction();
 
@@ -42,7 +43,7 @@ export default function Reports() {
                   <strong>Imported {result.reportKey}</strong>
                   <div>{result.totalRows} rows · {result.matchedRows} matched → PostgreSQL · {result.unmatchedRows} unmatched → MongoDB</div>
                   <div>{num(result.totalStreams)} streams · {inr(result.totalRevenue)}</div>
-                  {result.unmatchedRows > 0 && <Link to="/admin/unmatched">Resolve unmatched rows →</Link>}
+                  {result.unmatchedRows > 0 && <Link href="/admin/unmatched">Resolve unmatched rows →</Link>}
                 </div>
               </div>
             )}
@@ -57,7 +58,34 @@ export default function Reports() {
               )}
             </Loader>
             <Field label="CSV file" hint="Sample files are in the project's sample-data folder">
-              <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={(e) => setFile(e.target.files[0] || null)} required />
+              <label
+                className={`file-drop ${dragging ? 'dragging' : ''} ${file ? 'has-file' : ''}`}
+                onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragging(false);
+                  const dropped = e.dataTransfer.files[0];
+                  if (dropped && fileRef.current) {
+                    fileRef.current.files = e.dataTransfer.files; // keeps the input's `required` check satisfied
+                    setFile(dropped);
+                  }
+                }}
+              >
+                <input ref={fileRef} type="file" accept=".csv,text/csv" className="file-input" onChange={(e) => setFile(e.target.files[0] || null)} required />
+                <span className="file-drop-icon" aria-hidden="true">{file ? '✓' : '⇪'}</span>
+                {file ? (
+                  <span className="file-drop-text">
+                    <strong>{file.name}</strong>
+                    <span className="muted">{(file.size / 1024).toFixed(1)} KB · click to choose a different file</span>
+                  </span>
+                ) : (
+                  <span className="file-drop-text">
+                    <strong>Choose a CSV file</strong>
+                    <span className="muted">or drag it here</span>
+                  </span>
+                )}
+              </label>
             </Field>
             <Button type="submit" busy={action.busy} disabled={!file || !platform}>Upload & process</Button>
             <p className="small muted">Duplicate imports are rejected by report identifier (PLATFORM-YYYY-MM), file hash and per-row source id.</p>
