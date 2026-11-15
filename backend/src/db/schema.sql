@@ -361,3 +361,131 @@ FROM royalty_details d
 JOIN contributors c ON c.id = d.contributor_id
 LEFT JOIN payments p ON p.run_id = d.run_id AND p.contributor_id = d.contributor_id
 GROUP BY d.run_id, d.contributor_id, c.name, p.id, p.paid_at, p.payment_reference;
+
+-- =====================================================================
+-- Stored function (with a CTE): a contributor's lifetime earnings summary.
+-- Used by the statement API:  SELECT * FROM fn_contributor_earnings(1);
+-- =====================================================================
+CREATE OR REPLACE FUNCTION fn_contributor_earnings(p_contributor_id INT)
+RETURNS TABLE (
+  gross               NUMERIC(18,2),
+  advance_deduction   NUMERIC(18,2),
+  net                 NUMERIC(18,2),
+  paid                NUMERIC(18,2),
+  awaiting_payment    NUMERIC(18,2),
+  outstanding_advance NUMERIC(18,2)
+)
+LANGUAGE sql STABLE AS $$
+  WITH live_lines AS (                         -- CTE: payables from runs that were not rejected
+    SELECT v.gross_amount, v.advance_deduction AS adv, v.net_amount, v.payment_status, r.status AS run_status
+      FROM v_run_contributor_payables v
+      JOIN royalty_runs r ON r.id = v.run_id
+     WHERE v.contributor_id = p_contributor_id AND r.status <> 'REJECTED'
+  )
+  SELECT COALESCE(SUM(l.gross_amount), 0)::NUMERIC(18,2),
+         COALESCE(SUM(l.adv), 0)::NUMERIC(18,2),
+         COALESCE(SUM(l.net_amount), 0)::NUMERIC(18,2),
+         COALESCE(SUM(l.net_amount) FILTER (WHERE l.payment_status = 'PAID'), 0)::NUMERIC(18,2),
+         COALESCE(SUM(l.net_amount) FILTER (WHERE l.payment_status = 'PENDING'
+                                              AND l.run_status IN ('APPROVED','PAID')), 0)::NUMERIC(18,2),
+         (SELECT COALESCE(SUM(a.outstanding_balance), 0) FROM advances a
+           WHERE a.contributor_id = p_contributor_id)::NUMERIC(18,2)
+    FROM live_lines l;
+$$;
+
+-- =====================================================================
+-- Stored procedure: Finance rejects a royalty run.
+-- Used by the API:  CALL sp_reject_royalty_run(run_id, user_id, 'reason');
+-- Marks the run REJECTED (history kept) and releases its streaming records
+-- so a corrected run can include them. Runs inside the caller's transaction.
+-- =====================================================================
+CREATE OR REPLACE PROCEDURE sp_reject_royalty_run(p_run_id INT, p_user_id INT, p_reason TEXT)
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_status   TEXT;
+  v_released INT;
+BEGIN
+  IF p_reason IS NULL OR btrim(p_reason) = '' THEN
+    RAISE EXCEPTION 'A rejection reason is required' USING ERRCODE = 'P0001';
+  END IF;
+
+  SELECT status INTO v_status FROM royalty_runs WHERE id = p_run_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Royalty run % not found', p_run_id USING ERRCODE = 'P0002';
+  END IF;
+  IF v_status <> 'PENDING_APPROVAL' THEN
+    RAISE EXCEPTION 'Run is %; only runs pending approval can be rejected', v_status USING ERRCODE = 'P0001';
+  END IF;
+
+  UPDATE royalty_runs
+     SET status = 'REJECTED', rejected_by = p_user_id, rejected_at = now(), rejection_reason = p_reason
+   WHERE id = p_run_id;
+
+  UPDATE streaming_records SET royalty_run_id = NULL WHERE royalty_run_id = p_run_id;
+  GET DIAGNOSTICS v_released = ROW_COUNT;
+  RAISE NOTICE 'Run % rejected; % streaming records released', p_run_id, v_released;
+END;
+$$;
+
+-- =====================================================================
+-- Role-based access control inside PostgreSQL (DCL: roles, GRANT, RLS).
+-- The API enforces roles on every endpoint; these database roles add the
+-- same rules for anyone connecting to the database directly.
+--   mrms_admin       : manages catalogue, splits, reports, advances, runs
+--   mrms_finance     : approves runs, records payments (append-only)
+--   mrms_contributor : read-only, sees ONLY their own royalty lines (RLS),
+--                      may only change the decision columns of an approval
+-- =====================================================================
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mrms_admin')       THEN CREATE ROLE mrms_admin NOLOGIN;       END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mrms_finance')     THEN CREATE ROLE mrms_finance NOLOGIN;     END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mrms_contributor') THEN CREATE ROLE mrms_contributor NOLOGIN; END IF;
+END $$;
+
+-- every role can read the catalogue
+GRANT SELECT ON platforms, tracks, track_identifiers, track_contributors, contributors,
+                split_versions, track_splits, split_approvals
+  TO mrms_admin, mrms_finance, mrms_contributor;
+
+-- admin: catalogue, splits, reports, advances and royalty runs
+GRANT SELECT, INSERT, UPDATE ON tracks, track_identifiers, track_contributors, contributors,
+                                split_versions, track_splits, split_approvals,
+                                streaming_reports, streaming_records, advances, advance_transactions,
+                                royalty_runs, royalty_run_tracks, royalty_sampling_obligations, royalty_details
+  TO mrms_admin;
+GRANT SELECT ON payments, users, v_run_contributor_payables TO mrms_admin;
+
+-- finance: read everything financial, approve runs, recoup advances, record payments
+GRANT SELECT ON streaming_reports, streaming_records, advances, advance_transactions, royalty_runs,
+                royalty_run_tracks, royalty_sampling_obligations, royalty_details, payments,
+                v_run_contributor_payables
+  TO mrms_finance;
+GRANT UPDATE ON royalty_runs, advances TO mrms_finance;
+GRANT INSERT ON payments, advance_transactions TO mrms_finance;
+
+-- contributor: own statement lines only (RLS below); may record only an approval decision
+GRANT SELECT ON royalty_details, royalty_runs, payments, advances TO mrms_contributor;
+GRANT UPDATE (status, comment, decided_by, decided_at) ON split_approvals TO mrms_contributor;
+
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO mrms_admin, mrms_finance;
+GRANT EXECUTE ON FUNCTION fn_contributor_earnings(INT) TO mrms_admin, mrms_finance, mrms_contributor;
+GRANT EXECUTE ON PROCEDURE sp_reject_royalty_run(INT, INT, TEXT) TO mrms_finance;
+
+-- Row-level security: a contributor session sets  app.contributor_id  and then only
+-- sees its own rows. The table owner (the API's connection) is not affected.
+ALTER TABLE royalty_details ENABLE ROW LEVEL SECURITY;
+ALTER TABLE split_approvals ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS p_details_staff ON royalty_details;
+CREATE POLICY p_details_staff ON royalty_details TO mrms_admin, mrms_finance USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS p_details_own ON royalty_details;
+CREATE POLICY p_details_own ON royalty_details FOR SELECT TO mrms_contributor
+  USING (contributor_id = NULLIF(current_setting('app.contributor_id', true), '')::INT);
+
+DROP POLICY IF EXISTS p_approvals_staff ON split_approvals;
+CREATE POLICY p_approvals_staff ON split_approvals TO mrms_admin, mrms_finance USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS p_approvals_own ON split_approvals;
+CREATE POLICY p_approvals_own ON split_approvals TO mrms_contributor
+  USING (contributor_id = NULLIF(current_setting('app.contributor_id', true), '')::INT)
+  WITH CHECK (contributor_id = NULLIF(current_setting('app.contributor_id', true), '')::INT);

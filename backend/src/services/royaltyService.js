@@ -324,17 +324,11 @@ async function approveRun(id, user) {
 
 async function rejectRun(id, user, reason) {
   if (!String(reason || '').trim()) throw new ApiError(400, 'A rejection reason is required');
-  await withTransaction(async (client) => {
-    const run = (await client.query('SELECT status FROM royalty_runs WHERE id=$1 FOR UPDATE', [id])).rows[0];
-    if (!run) throw new ApiError(404, 'Royalty run not found');
-    if (run.status !== 'PENDING_APPROVAL') throw new ApiError(409, `Run is ${run.status}; only runs pending approval can be rejected`);
-    await client.query(
-      `UPDATE royalty_runs SET status='REJECTED', rejected_by=$1, rejected_at=now(), rejection_reason=$2 WHERE id=$3`,
-      [user.id, reason, id]
-    );
-    // release the streaming records so a corrected run can include them (details stay as history)
-    await client.query('UPDATE streaming_records SET royalty_run_id = NULL WHERE royalty_run_id = $1', [id]);
-  });
+  const exists = await query('SELECT 1 FROM royalty_runs WHERE id=$1', [id]);
+  if (!exists.rowCount) throw new ApiError(404, 'Royalty run not found');
+  // Stored procedure (schema.sql): marks the run REJECTED and releases its streaming records,
+  // inside this transaction. It raises an error if the run is not pending approval.
+  await withTransaction((client) => client.query('CALL sp_reject_royalty_run($1, $2, $3)', [id, user.id, reason]));
   return getRun(id);
 }
 

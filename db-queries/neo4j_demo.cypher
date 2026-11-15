@@ -1,5 +1,5 @@
 // Neo4j demo queries (sampling graph).
-// Easiest: paste ONE query at a time into Neo4j Browser at http://localhost:7475
+// Easiest: paste ONE query at a time into Neo4j Browser at http://localhost:17474
 // Terminal (PowerShell, in the project folder):
 //   cmd /c "type db-queries\neo4j_demo.cypher | docker exec -i mrms-neo4j cypher-shell -u neo4j -p royalty_neo4j_pw 2>&1"
 

@@ -152,8 +152,13 @@ async function main() {
   check('duplicate run for same period rejected (409)', (await api('POST', '/royalties/runs', { token: admin, body: { month: '2026-10' } })).status === 409);
   check('rerun of September (already paid) rejected (409)', (await api('POST', '/royalties/runs', { token: admin, body: { month: '2026-09' } })).status === 409);
 
-  console.log('\n10. Finance approval & payments');
-  const runId = run.data.id;
+  console.log('\n10. Finance reject (stored procedure), recalculate, approve & pay');
+  const rej = await api('POST', `/royalties/runs/${run.data.id}/reject`, { token: finance, body: { reason: 'Re-check Apple Music figures' } });
+  check('finance rejects run via sp_reject_royalty_run', rej.status === 200 && rej.data.status === 'REJECTED', rej.data);
+  check('rejecting again fails inside the procedure (409)', (await api('POST', `/royalties/runs/${run.data.id}/reject`, { token: finance, body: { reason: 'again' } })).status === 409);
+  const rerun = await api('POST', '/royalties/runs', { token: admin, body: { month: '2026-10' } });
+  check('released records allow a corrected run for the same month', rerun.status === 201 && rerun.data.totalNet === run.data.totalNet, rerun.data);
+  const runId = rerun.data.id;
   check('payment before approval rejected (409)', (await api('POST', '/payments', { token: finance, headers: { 'Idempotency-Key': 'early-key-0001' }, body: { runId, contributorId: cid.rahul } })).status === 409);
   check('admin cannot approve runs (403)', (await api('POST', `/royalties/runs/${runId}/approve`, { token: admin })).status === 403);
   const ap = await api('POST', `/royalties/runs/${runId}/approve`, { token: finance });

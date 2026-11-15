@@ -29,14 +29,11 @@ async function forContributor(contributorId) {
       ORDER BY r.period_month DESC`,
     [contributorId]
   );
+  // Stored function with a CTE (schema.sql): lifetime earnings summary for the contributor
   const totals = await query(
-    `SELECT COALESCE(SUM(v.gross_amount),0) AS gross, COALESCE(SUM(v.advance_deduction),0) AS "advanceDeduction",
-            COALESCE(SUM(v.net_amount),0) AS net,
-            COALESCE(SUM(v.net_amount) FILTER (WHERE v.payment_status='PAID'),0) AS paid,
-            COALESCE(SUM(v.net_amount) FILTER (WHERE v.payment_status='PENDING' AND r.status IN ('APPROVED','PAID')),0) AS "awaitingPayment",
-            (SELECT COALESCE(SUM(outstanding_balance),0) FROM advances WHERE contributor_id = $1) AS "outstandingAdvance"
-       FROM v_run_contributor_payables v JOIN royalty_runs r ON r.id = v.run_id
-      WHERE v.contributor_id = $1 AND r.status <> 'REJECTED'`,
+    `SELECT gross, advance_deduction AS "advanceDeduction", net, paid,
+            awaiting_payment AS "awaitingPayment", outstanding_advance AS "outstandingAdvance"
+       FROM fn_contributor_earnings($1)`,
     [contributorId]
   );
   return {

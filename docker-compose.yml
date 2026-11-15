@@ -1,5 +1,5 @@
 # Music Royalty Management System - the three databases.
-# Host ports are deliberately non-default (5433 / 27018 / 7475 / 7688) so they
+# Host ports are deliberately non-default (5433 / 27018 / 17474 / 17687) so they
 # never clash with other local PostgreSQL / MongoDB / Neo4j installations.
 name: music-royalty
 
@@ -46,8 +46,8 @@ services:
       NEO4J_server_memory_heap_max__size: 512m
       NEO4J_server_memory_pagecache_size: 128m
     ports:
-      - "7475:7474"
-      - "7688:7687"
+      - "17474:7474"
+      - "17687:7687"
     volumes:
       - mrms_neo4j_data:/data
     healthcheck:

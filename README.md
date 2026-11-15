@@ -26,7 +26,7 @@ Exactly three databases are used. There is no Redis and no other store.
 |---|---|
 | PostgreSQL | **5433** |
 | MongoDB | **27018** |
-| Neo4j Browser / Bolt | **7475** / **7688** |
+| Neo4j Browser / Bolt | **17474** / **17687** |
 | Express API | **4000** |
 | Next.js | **3000** |
 
@@ -77,7 +77,7 @@ npm run dev              # http://localhost:3000
 **Step 6: Open the app:** <http://localhost:3000>
 
 Health check of all three databases: <http://localhost:4000/api/health>
-Neo4j Browser: <http://localhost:7475> (user `neo4j`, password `royalty_neo4j_pw`, connect URL `bolt://localhost:7688`)
+Neo4j Browser: <http://localhost:17474> (user `neo4j`, password `royalty_neo4j_pw`, connect URL `bolt://localhost:17687`)
 
 ### Demo accounts
 

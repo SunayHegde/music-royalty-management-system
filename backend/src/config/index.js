@@ -21,7 +21,7 @@ module.exports = {
     db: env('MONGO_DB', 'royalty_reports'),
   },
   neo4j: {
-    uri: env('NEO4J_URI', 'bolt://localhost:7688'),
+    uri: env('NEO4J_URI', 'bolt://localhost:17687'),
     user: env('NEO4J_USER', 'neo4j'),
     password: env('NEO4J_PASSWORD', 'royalty_neo4j_pw'),
   },
